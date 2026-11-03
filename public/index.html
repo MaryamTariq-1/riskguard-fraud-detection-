@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0b1120; color: #f8fafc; font-family: 'Inter', sans-serif; }
-        /* Custom scrollbar for better UI */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -32,17 +31,53 @@
             </div>
         </header>
 
+        <!-- EDA STATS CARDS (New) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <!-- Card 1: Total -->
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl">👥</div>
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Customers</p>
+                <h3 id="statTotal" class="text-3xl font-bold text-white">0</h3>
+            </div>
+            <!-- Card 2: Safe -->
+            <div class="bg-gray-900 p-5 rounded-xl border border-emerald-900/50 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl text-emerald-500">✅</div>
+                <p class="text-emerald-500 text-xs font-semibold uppercase tracking-wider mb-1">Safe Users</p>
+                <h3 id="statSafe" class="text-3xl font-bold text-emerald-400">0</h3>
+            </div>
+            <!-- Card 3: High Risk (Abusers) -->
+            <div class="bg-gray-900 p-5 rounded-xl border border-amber-900/50 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl text-amber-500">⚠️</div>
+                <p class="text-amber-500 text-xs font-semibold uppercase tracking-wider mb-1">Return & Claim Abusers</p>
+                <h3 id="statAbusers" class="text-3xl font-bold text-amber-400">0</h3>
+            </div>
+            <!-- Card 4: Blocked/Banned -->
+            <div class="bg-gray-900 p-5 rounded-xl border border-rose-900/50 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl text-rose-500">🚫</div>
+                <p class="text-rose-500 text-xs font-semibold uppercase tracking-wider mb-1">Blocked / Banned</p>
+                <h3 id="statBlocked" class="text-3xl font-bold text-rose-400">0</h3>
+            </div>
+        </div>
+
+        <!-- Claim Type Breakdown (EDA Details) -->
+        <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-800 mb-6 flex gap-6 text-sm">
+            <div class="text-gray-400">Fraud Breakdown:</div>
+            <div class="text-white"><span class="text-indigo-400 font-bold" id="statReturnAbuser">0</span> Return Abusers</div>
+            <div class="text-white"><span class="text-purple-400 font-bold" id="statScammer">0</span> Scammers</div>
+            <div class="text-white"><span class="text-blue-400 font-bold" id="statClaimAbuser">0</span> Claim Abusers</div>
+        </div>
+
         <!-- Filters Section -->
         <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row gap-4 mb-6 shadow-lg">
             <div class="flex-1">
                 <label class="block text-xs font-medium text-gray-400 mb-1">Search Customers</label>
                 <input type="text" id="searchInput" placeholder="Search by name, email, or country..." 
-                       class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition text-sm">
+                       class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 transition text-sm">
             </div>
             
             <div class="w-full md:w-64">
                 <label class="block text-xs font-medium text-gray-400 mb-1">Filter by Status</label>
-                <select id="statusFilter" class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition text-sm cursor-pointer">
+                <select id="statusFilter" class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 transition text-sm cursor-pointer">
                     <option value="All">All Statuses</option>
                     <option value="Safe">Safe</option>
                     <option value="Warning">Warning</option>
@@ -75,7 +110,6 @@
             </div>
         </div>
         
-        <!-- Empty State (Agar koi data filter mein na aaye) -->
         <div id="emptyState" class="hidden text-center py-10 bg-gray-900 rounded-xl border border-gray-800 mt-4">
             <p class="text-gray-400">No customers found matching your filters.</p>
         </div>
@@ -86,7 +120,6 @@
     <script>
         let allData = [];
 
-        // 1. Backend API se data fetch karna
         async function fetchData() {
             try {
                 const response = await fetch('/api/risks');
@@ -94,6 +127,7 @@
                 
                 if (result.success) {
                     allData = result.data;
+                    calculateEDA(allData); // EDA Calculate karein
                     renderTable(allData);
                 } else {
                     alert('Error loading data from API');
@@ -103,7 +137,38 @@
             }
         }
 
-        // 2. Table render karna
+        // EDA (Exploratory Data Analysis) Function
+        function calculateEDA(data) {
+            let safeCount = 0;
+            let abuserCount = 0;
+            let blockedCount = 0;
+            let returnAbuser = 0;
+            let scammer = 0;
+            let claimAbuser = 0;
+
+            data.forEach(user => {
+                // Status Counts
+                if (user.status === 'Safe') safeCount++;
+                if (user.status === 'Blocked' || user.status === 'Banned') blockedCount++;
+                if (['return_abuser', 'scammer', 'claim_abuser'].includes(user.claim_type)) abuserCount++;
+
+                // Claim Type Counts
+                if (user.claim_type === 'return_abuser') returnAbuser++;
+                if (user.claim_type === 'scammer') scammer++;
+                if (user.claim_type === 'claim_abuser') claimAbuser++;
+            });
+
+            // Update DOM Elements
+            document.getElementById('statTotal').innerText = data.length;
+            document.getElementById('statSafe').innerText = safeCount;
+            document.getElementById('statAbusers').innerText = abuserCount;
+            document.getElementById('statBlocked').innerText = blockedCount;
+            
+            document.getElementById('statReturnAbuser').innerText = returnAbuser;
+            document.getElementById('statScammer').innerText = scammer;
+            document.getElementById('statClaimAbuser').innerText = claimAbuser;
+        }
+
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
             const emptyState = document.getElementById('emptyState');
@@ -117,7 +182,6 @@
             }
 
             data.forEach(user => {
-                // Status ke hisaab se badge colors
                 let statusClass = 'bg-emerald-900/30 text-emerald-400 border border-emerald-800';
                 if (user.status === 'Banned' || user.status === 'Blocked') {
                     statusClass = 'bg-rose-900/30 text-rose-400 border border-rose-800';
@@ -127,7 +191,6 @@
                     statusClass = 'bg-blue-900/30 text-blue-400 border border-blue-800';
                 }
 
-                // Risk Score ke hisaab se text color
                 let riskColor = 'text-emerald-400';
                 if (user.risk_score > 70) riskColor = 'text-rose-400';
                 else if (user.risk_score > 40) riskColor = 'text-amber-400';
@@ -135,7 +198,6 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-800/40 transition duration-150';
                 
-                // NOTE: CSV header mein '%' hai, isliye user['return_rate_%'] use kiya hai
                 tr.innerHTML = `
                     <td class="p-4">
                         <div class="font-bold text-white">${user.full_name}</div>
@@ -162,32 +224,25 @@
             });
         }
 
-        // 3. Search aur Filter logic
         function applyFilters() {
             const searchText = document.getElementById('searchInput').value.toLowerCase();
             const statusText = document.getElementById('statusFilter').value;
 
             const filteredData = allData.filter(user => {
-                // Search by Name, Email, Country
                 const matchesSearch = 
                     user.full_name.toLowerCase().includes(searchText) || 
                     user.email.toLowerCase().includes(searchText) || 
                     user.country.toLowerCase().includes(searchText);
-                
-                // Filter by Status
                 const matchesStatus = statusText === 'All' || user.status === statusText;
-                
                 return matchesSearch && matchesStatus;
             });
 
             renderTable(filteredData);
         }
 
-        // 4. Event Listeners (Jab user type kare ya filter change kare)
         document.getElementById('searchInput').addEventListener('input', applyFilters);
         document.getElementById('statusFilter').addEventListener('change', applyFilters);
 
-        // 5. Page load hote hi data fetch karein
         fetchData();
     </script>
 </body>

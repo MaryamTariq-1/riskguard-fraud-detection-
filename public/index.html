@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskGuard | Fraud Detection Dashboard</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b1120; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar for better UI */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="p-6 md:p-10">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <header class="mb-8 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold text-white flex items-center gap-2">
+                    🛡️ RiskGuard Dashboard
+                </h1>
+                <p class="text-gray-400 mt-1 text-sm">European E-Commerce Return & Fraud Tracking System</p>
+            </div>
+            <div class="text-right">
+                <span class="bg-green-900/50 text-green-400 border border-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                    System Live
+                </span>
+            </div>
+        </header>
+
+        <!-- Filters Section -->
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row gap-4 mb-6 shadow-lg">
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-400 mb-1">Search Customers</label>
+                <input type="text" id="searchInput" placeholder="Search by name, email, or country..." 
+                       class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition text-sm">
+            </div>
+            
+            <div class="w-full md:w-64">
+                <label class="block text-xs font-medium text-gray-400 mb-1">Filter by Status</label>
+                <select id="statusFilter" class="w-full bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition text-sm cursor-pointer">
+                    <option value="All">All Statuses</option>
+                    <option value="Safe">Safe</option>
+                    <option value="Warning">Warning</option>
+                    <option value="Review">Review</option>
+                    <option value="Blocked">Blocked</option>
+                    <option value="Banned">Banned</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Data Table Section -->
+        <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="p-4 font-semibold">Customer Details</th>
+                            <th class="p-4 font-semibold">Country</th>
+                            <th class="p-4 font-semibold text-center">Orders / Returns</th>
+                            <th class="p-4 font-semibold">Return Rate</th>
+                            <th class="p-4 font-semibold">Claim Type</th>
+                            <th class="p-4 font-semibold">Risk Score</th>
+                            <th class="p-4 font-semibold">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-800 text-sm">
+                        <!-- JavaScript will inject rows here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Empty State (Agar koi data filter mein na aaye) -->
+        <div id="emptyState" class="hidden text-center py-10 bg-gray-900 rounded-xl border border-gray-800 mt-4">
+            <p class="text-gray-400">No customers found matching your filters.</p>
+        </div>
+
+    </div>
+
+    <!-- Frontend JavaScript Logic -->
+    <script>
+        let allData = [];
+
+        // 1. Backend API se data fetch karna
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/risks');
+                const result = await response.json();
+                
+                if (result.success) {
+                    allData = result.data;
+                    renderTable(allData);
+                } else {
+                    alert('Error loading data from API');
+                }
+            } catch (error) {
+                console.error('Fetch Error:', error);
+            }
+        }
+
+        // 2. Table render karna
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            data.forEach(user => {
+                // Status ke hisaab se badge colors
+                let statusClass = 'bg-emerald-900/30 text-emerald-400 border border-emerald-800';
+                if (user.status === 'Banned' || user.status === 'Blocked') {
+                    statusClass = 'bg-rose-900/30 text-rose-400 border border-rose-800';
+                } else if (user.status === 'Warning') {
+                    statusClass = 'bg-amber-900/30 text-amber-400 border border-amber-800';
+                } else if (user.status === 'Review') {
+                    statusClass = 'bg-blue-900/30 text-blue-400 border border-blue-800';
+                }
+
+                // Risk Score ke hisaab se text color
+                let riskColor = 'text-emerald-400';
+                if (user.risk_score > 70) riskColor = 'text-rose-400';
+                else if (user.risk_score > 40) riskColor = 'text-amber-400';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-800/40 transition duration-150';
+                
+                // NOTE: CSV header mein '%' hai, isliye user['return_rate_%'] use kiya hai
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <div class="font-bold text-white">${user.full_name}</div>
+                        <div class="text-gray-400 text-xs">${user.email}</div>
+                    </td>
+                    <td class="p-4 text-gray-300 font-medium">${user.country}</td>
+                    <td class="p-4 text-gray-300 text-center">
+                        <span class="bg-gray-800 px-3 py-1 rounded-md border border-gray-700">${user.total_orders} / ${user.total_returns}</span>
+                    </td>
+                    <td class="p-4 font-bold ${riskColor}">${user['return_rate_%']}%</td>
+                    <td class="p-4">
+                        <span class="bg-gray-800/80 text-indigo-300 border border-gray-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                            ${user.claim_type}
+                        </span>
+                    </td>
+                    <td class="p-4 font-bold ${riskColor}">${user.risk_score} <span class="text-gray-500 text-xs font-normal">/100</span></td>
+                    <td class="p-4">
+                        <span class="${statusClass} px-3 py-1 rounded-full text-xs font-bold">
+                            ${user.status}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 3. Search aur Filter logic
+        function applyFilters() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const statusText = document.getElementById('statusFilter').value;
+
+            const filteredData = allData.filter(user => {
+                // Search by Name, Email, Country
+                const matchesSearch = 
+                    user.full_name.toLowerCase().includes(searchText) || 
+                    user.email.toLowerCase().includes(searchText) || 
+                    user.country.toLowerCase().includes(searchText);
+                
+                // Filter by Status
+                const matchesStatus = statusText === 'All' || user.status === statusText;
+                
+                return matchesSearch && matchesStatus;
+            });
+
+            renderTable(filteredData);
+        }
+
+        // 4. Event Listeners (Jab user type kare ya filter change kare)
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+        // 5. Page load hote hi data fetch karein
+        fetchData();
+    </script>
+</body>
+</html>

@@ -38,15 +38,15 @@ with col_chart1:
     st.subheader("Risk Distribution by Claim Type")
     fig1 = px.histogram(filtered_df, x="claim_type", color="status", barmode="group", 
                         color_discrete_map={'Safe':'green', 'Warning':'orange', 'Review':'blue', 'Blocked':'red', 'Banned':'darkred'})
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width='stretch')
 
 with col_chart2:
     st.subheader("Fraud Cases by European Country")
     # Sirf abusers filter karke country map banayein
     abusers_df = filtered_df[filtered_df['claim_type'] != 'None']
     fig2 = px.pie(abusers_df, names='country', values='risk_score', hole=0.4)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width='stretch')
 
 # 6. Raw Data Table
 st.subheader("📋 Raw Risk Data")
-st.dataframe(filtered_df[['full_name', 'country', 'claim_type', 'risk_score', 'status']], use_container_width=True)
+st.dataframe(filtered_df[['full_name', 'country', 'claim_type', 'risk_score', 'status']], width='stretch')

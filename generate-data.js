@@ -9,15 +9,24 @@ if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 const csvHeaders = 'user_id,full_name,email,phone,country,total_orders,total_returns,return_rate_%,claim_type,risk_score,status,last_incident_date,reason_details\n';
 const records = [];
 const europeanCountries = ['Germany', 'France', 'United Kingdom', 'Italy', 'Spain', 'Netherlands', 'Sweden'];
+const callingCodes = {
+    Germany: '+49',
+    France: '+33',
+    'United Kingdom': '+44',
+    Italy: '+39',
+    Spain: '+34',
+    Netherlands: '+31',
+    Sweden: '+46'
+};
 
-for (let i = 1; i <= 2000; i++) {
+for (let i = 1; i <= 50; i++) {
     // 1. European Identity generate karna
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
     const fullName = `${firstName} ${lastName}`;
     const email = faker.internet.email({ firstName, lastName, provider: 'example.eu' }).toLowerCase();
-    const phone = faker.phone.number({ style: 'international' });
     const country = faker.helpers.arrayElement(europeanCountries);
+    const phone = `${callingCodes[country]}${faker.string.numeric(10)}`;
     const userId = `USR-${1000 + i}`;
 
     // 2. Order History generate karna
